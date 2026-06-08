@@ -1,0 +1,607 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Ordem de Manutenção</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f0f2f5; color: #1a1a1a; font-size: 14px; }
+
+.header { background: #ffe600; padding: 14px 16px; position: sticky; top: 0; z-index: 100; box-shadow: 0 2px 6px rgba(0,0,0,0.15); display: flex; align-items: center; gap: 12px; }
+.header-logo { font-size: 20px; }
+.header-info h1 { font-size: 15px; font-weight: 800; color: #1a1a1a; }
+.header-info p  { font-size: 11px; color: #555; margin-top: 1px; }
+
+.dados-card { background: #fff; margin: 12px; border-radius: 12px; box-shadow: 0 1px 4px rgba(0,0,0,0.1); overflow: hidden; }
+.dados-title { background: #1a1a1a; color: #ffe600; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; padding: 9px 14px; }
+.dados-grid  { display: grid; grid-template-columns: 1fr 1fr; }
+.dado-item   { padding: 9px 14px; border-bottom: 1px solid #f0f0f0; }
+.dado-item:nth-child(odd) { border-right: 1px solid #f0f0f0; }
+.dado-item.full { grid-column: 1/-1; }
+.dado-lbl { font-size: 10px; color: #888; text-transform: uppercase; font-weight: 600; }
+.dado-val { font-size: 13px; font-weight: 700; color: #1a1a1a; margin-top: 2px; }
+.dado-input { margin-top: 4px; width: 100%; padding: 8px 10px; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 13px; font-weight: 700; color: #1a1a1a; }
+.dado-input:focus { outline: none; border-color: #ffe600; background: #fffde7; }
+
+/* Tabela de operações */
+.ops-section { margin: 0 12px 12px; }
+.ops-title { background: #1a1a1a; color: #ffe600; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; padding: 9px 14px; border-radius: 12px 12px 0 0; }
+.ops-header { display: grid; grid-template-columns: 44px 1fr 60px 72px 70px; background: #f5f5f5; border-bottom: 2px solid #e0e0e0; }
+.ops-header > div { padding: 7px 6px; font-size: 10px; font-weight: 700; color: #888; text-transform: uppercase; letter-spacing: 0.4px; text-align: center; }
+.ops-header > div:nth-child(2) { text-align: left; }
+
+/* Linha principal de cada op */
+.op-block { background: #fff; border-bottom: 1px solid #f0f0f0; }
+.op-block:nth-child(even) { background: #fafafa; }
+.op-block:last-child { border-radius: 0 0 12px 12px; border-bottom: none; }
+.op-row { display: grid; grid-template-columns: 44px 1fr 60px 72px 70px; align-items: center; }
+.op-num   { padding: 10px 6px; font-size: 11px; font-weight: 700; color: #999; text-align: center; }
+.op-txt   { padding: 10px 8px; font-size: 12px; color: #1a1a1a; line-height: 1.35; }
+.op-posto { padding: 10px 4px; font-size: 10px; color: #666; text-align: center; font-weight: 600; }
+
+/* Verificado */
+.op-verif { padding: 5px 4px; }
+.verif-sel { width: 100%; padding: 7px 4px; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 11px; font-weight: 800; text-align: center; cursor: pointer; appearance: none; }
+.verif-sel:focus { outline: none; }
+.verif-sel.sim { border-color: #4caf50; background: #f1f8e9; color: #2e7d32; }
+.verif-sel.nao { border-color: #f44336; background: #fdecea; color: #c62828; }
+
+/* Minutos */
+.op-real  { padding: 5px 4px; }
+.op-real input { width: 100%; padding: 7px 4px; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 14px; font-weight: 800; text-align: center; color: #1a1a1a; -moz-appearance: textfield; }
+.op-real input::-webkit-outer-spin-button,
+.op-real input::-webkit-inner-spin-button { -webkit-appearance: none; }
+.op-real input:focus { outline: none; border-color: #ffe600; background: #fffde7; }
+.op-real input.filled { border-color: #4caf50; background: #f1f8e9; color: #2e7d32; }
+
+/* Comentário */
+.op-comment { padding: 6px 10px 10px 54px; display: flex; gap: 6px; align-items: center; }
+.op-comment input { flex: 1; padding: 7px 10px; border: 1.5px solid #e8e8e8; border-radius: 8px; font-size: 12px; color: #1a1a1a; background: #fafafa; }
+.op-comment input:focus { outline: none; border-color: #ffe600; background: #fffde7; }
+.btn-cmt-save  { padding: 7px 10px; background: #1a1a1a; color: #ffe600; border: none; border-radius: 8px; font-size: 11px; font-weight: 700; cursor: pointer; white-space: nowrap; }
+.btn-cmt-clear { padding: 7px 9px; background: #f0f0f0; color: #888; border: 1px solid #e0e0e0; border-radius: 8px; font-size: 11px; font-weight: 700; cursor: pointer; }
+.cmt-log { padding: 0 10px 8px 54px; display: flex; flex-direction: column; gap: 4px; }
+.cmt-item { display: flex; align-items: flex-start; gap: 6px; background: #f5f5f5; border-radius: 7px; padding: 6px 10px; font-size: 12px; color: #333; }
+.cmt-item span { flex: 1; }
+.cmt-time { font-size: 10px; color: #aaa; white-space: nowrap; }
+.cmt-del  { background: none; border: none; color: #ccc; font-size: 13px; cursor: pointer; padding: 0 2px; }
+
+.group-header { background: #ffe600; padding: 7px 14px; font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; color: #1a1a1a; display: flex; justify-content: space-between; align-items: center; }
+.group-total { font-size: 10px; font-weight: 800; background: rgba(0,0,0,0.1); padding: 2px 8px; border-radius: 10px; }
+
+.total-bar { background: #1a1a1a; margin: 0 12px 12px; border-radius: 12px; padding: 14px 18px; display: flex; justify-content: space-between; align-items: center; }
+.total-lbl { color: #ffe600; font-size: 12px; font-weight: 700; text-transform: uppercase; }
+.total-val { color: #fff; font-size: 24px; font-weight: 900; }
+.total-unit { color: #ffe600; font-size: 12px; margin-left: 3px; }
+
+.obs-card { background: #fff; margin: 0 12px 12px; border-radius: 12px; box-shadow: 0 1px 4px rgba(0,0,0,0.1); overflow: hidden; }
+.obs-card .obs-title { background: #1a1a1a; color: #ffe600; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; padding: 9px 14px; }
+.obs-card textarea { width: 100%; padding: 12px 14px; border: none; font-size: 13px; resize: none; min-height: 80px; color: #1a1a1a; }
+.obs-card textarea:focus { outline: none; background: #fffde7; }
+
+.btn-row { display: flex; gap: 10px; margin: 0 12px 28px; }
+.btn-salvar { flex: 1; padding: 15px; background: #1a1a1a; color: #ffe600; font-size: 14px; font-weight: 800; border: none; border-radius: 12px; text-transform: uppercase; cursor: pointer; }
+.btn-salvar:active { background: #333; }
+.btn-salvar:disabled { opacity: 0.5; }
+
+/* Modal PDF gerado */
+.pdf-modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.5); z-index: 999; align-items: center; justify-content: center; padding: 20px; }
+.pdf-modal.open { display: flex; }
+.pdf-box { background: #fff; border-radius: 16px; padding: 28px 22px; max-width: 340px; width: 100%; text-align: center; }
+.pdf-box .icon { font-size: 48px; margin-bottom: 12px; }
+.pdf-box h3 { font-size: 17px; font-weight: 800; margin-bottom: 8px; }
+.pdf-box p  { font-size: 13px; color: #666; margin-bottom: 20px; line-height: 1.5; }
+.pdf-box-btns { display: flex; flex-direction: column; gap: 8px; }
+.btn-baixar { padding: 13px; background: #1a1a1a; color: #ffe600; border: none; border-radius: 10px; font-size: 14px; font-weight: 700; cursor: pointer; }
+.btn-fechar-pdf { padding: 12px; background: #f0f0f0; color: #666; border: none; border-radius: 10px; font-size: 13px; font-weight: 600; cursor: pointer; }
+
+.toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: #1a1a1a; color: #ffe600; padding: 11px 22px; border-radius: 24px; font-size: 13px; font-weight: 600; opacity: 0; transition: opacity .3s; pointer-events: none; z-index: 999; }
+.toast.show { opacity: 1; }
+
+.progress-bar  { height: 4px; background: #e0e0e0; margin: 0 12px 4px; border-radius: 4px; overflow: hidden; }
+.progress-fill { height: 100%; background: #4caf50; transition: width .3s; }
+.progress-lbl  { text-align: center; font-size: 11px; color: #666; margin-bottom: 10px; font-weight: 600; }
+
+.sem-dados { text-align: center; padding: 60px 20px; color: #aaa; }
+.sem-dados .icon { font-size: 48px; margin-bottom: 16px; }
+.sem-dados p { font-size: 14px; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-logo">🔧</div>
+  <div class="header-info">
+    <h1 id="hTitle">Ordem de Manutenção</h1>
+    <p id="hSub">Carregando...</p>
+  </div>
+</div>
+
+<div id="mainContent"></div>
+
+<div class="toast" id="toast"></div>
+
+<div class="pdf-modal" id="pdfModal">
+  <div class="pdf-box">
+    <div class="icon">✅</div>
+    <h3>Relatório Gerado!</h3>
+    <p>O preenchimento foi salvo e o PDF foi enviado para o dashboard. O técnico também pode baixar uma cópia.</p>
+    <div class="pdf-box-btns">
+      <button class="btn-baixar" id="btnBaixarPDF">📥 Baixar PDF</button>
+      <button class="btn-fechar-pdf" onclick="document.getElementById('pdfModal').classList.remove('open')">Fechar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── Checklists por plano ──
+const CHECKLISTS = {
+  '9076': [
+    { titulo: '🔩 Lonas & Estrutura', posto: 'ELETMEC', ops: [
+      {num:'0010',txt:'INSPEÇÃO SEMANAL DE ESTEIRAS (CHECK LIST)'},
+      {num:'0020',txt:'CHECK LIST DE INSPEÇÃO DE ESTEIRAS'},
+      {num:'0030',txt:'LONAS APRESENTAM-SE ALINHADAS?'},
+      {num:'0040',txt:'LONAS APRESENTAM-SE EM BOAS CONDIÇÕES?'},
+      {num:'0050',txt:'ESTICADOR E PORCAS COM BOAS CONDIÇÕES?'},
+      {num:'0060',txt:'TENSIONAMENTO ADEQUADO DA LONA?'},
+      {num:'0070',txt:'PROTEÇÕES DE MOTORES EM BOAS CONDIÇÕES?'},
+      {num:'0080',txt:'PROTEÇÕES FIXADAS CORRETAMENTE?'},
+      {num:'0090',txt:'VERIFICAR CHAPAS ENTRE MÓDULOS'},
+      {num:'0100',txt:'GUIAS LATERIAIS, FIXAÇÃO E INTEGRIDADE'},
+    ]},
+    { titulo: '⚙️ Mancais & Rolamentos', posto: 'ELETMEC', ops: [
+      {num:'0110',txt:'MANCAIS ESTÃO EM BOAS CONDIÇÕES?'},
+      {num:'0120',txt:'MANCAIS APRESENTAM TRINCAS OU VIBRAÇÃO?'},
+      {num:'0130',txt:'VERIFICAR PROTEÇÃO DOS MANCAIS'},
+      {num:'0140',txt:'ROLAMENTOS EM CONDIÇÕES, LUBRIFICADO?'},
+      {num:'0150',txt:'ROLAMENTOS COM RUÍDO, FOLGA OU ANOMALIA?'},
+    ]},
+    { titulo: '🔧 Engrenagens & Correntes', posto: 'ELETMEC', ops: [
+      {num:'0160',txt:'ENGRENAGENS EM CONDIÇÕES?'},
+      {num:'0170',txt:'VERIFICAR RASGO DE CHAVETA E CORRENTE'},
+      {num:'0180',txt:'VERIFICAR TRAVAS E DENTES DA ENGRENAGEM'},
+      {num:'0190',txt:'CORRENTES BEM LUBRIFICADAS?'},
+    ]},
+    { titulo: '🔄 Roletes', posto: 'ELETMEC', ops: [
+      {num:'0200',txt:'ROLETES GUIAS COM RUIDO, VIBRAÇÃO, SUJO?'},
+      {num:'0210',txt:'ROLETE LIVRE COM RUIDO, VIBRAÇÃO, SUJO?'},
+      {num:'0220',txt:'ROLETE RETORNO C/ RUIDO, VIBRAÇÃO, SUJO?'},
+      {num:'0230',txt:'ROLETE MOTOR COM RUIDO, VIBRAÇÃO, SUJO?'},
+      {num:'0240',txt:'ROLETE ESTICADOR RUIDO, VIBRAÇÃO, SUJO?'},
+    ]},
+    { titulo: '🛑 Linha & Módulos', posto: 'ELETMEC', ops: [
+      {num:'0250',txt:'STOP FINAL DA LINHA EM CONDIÇÕES?'},
+      {num:'0260',txt:'ALINHADOR/DESVIADOR EM CONDIÇÕES?'},
+      {num:'0270',txt:'REALIZAR A LIMPEZA GERAL NO EQUIPAMENTO'},
+      {num:'0280',txt:'VERIFICAR INTEGRIDADE FÍSICA DOS MÓDULOS'},
+    ]},
+    { titulo: '⚡ Painel Elétrico', posto: 'ELETMEC', ops: [
+      {num:'0290',txt:'PAINEL APRESENTA-SE EM CONDIÇÕES?'},
+      {num:'0300',txt:'REAPERTOS DE CONEXÕES DO PAINEL'},
+      {num:'0310',txt:'MEDIR TENSÃO DE ENTRADA DO PAINEL'},
+      {num:'0320',txt:'MEDIR TENSÃO DE ENTRADA DO INVERSOR'},
+      {num:'0330',txt:'CABOS ELÉTRICOS DO PAINEL EM CONDIÇÕES?'},
+      {num:'0340',txt:'VERIFICAR INTEGRIDADE DAS CANALETAS'},
+      {num:'0350',txt:'VERIFICAR INTEGRIDADE DAS BOTOERIAS'},
+      {num:'0360',txt:'REALIZAR LIMPEZA NO SISTEMA VENTILAÇÃO'},
+      {num:'0370',txt:'REALIZAR LIMPEZA GERAL NO PAINEL'},
+      {num:'0380',txt:'SAÍDAS DE CABOS EM BOAS CONDIÇÕES?'},
+      {num:'0390',txt:'DIAGRAMA ELÉTRICO EM BOAS CONDIÇÕES?'},
+      {num:'0400',txt:'VERIFICAR TRAVAMENTO DE PORTAS DO PAINEL'},
+      {num:'0410',txt:'PAINEL APRESENTA-SE BEM FIXADO?'},
+      {num:'0420',txt:'PAINEL APRESENTA ATERRAMENTO ADEQUADO?'},
+    ]},
+    { titulo: '🔌 Motorredutor & Motor', posto: 'ELETMEC', ops: [
+      {num:'0430',txt:'MOTORREDUTOR FUNCIONANDO E SEM RUÍDO?'},
+      {num:'0440',txt:'MOTORREDUTOR APRESENTA VIBRAÇÃO?'},
+      {num:'0450',txt:'MOTORREDUTOR APRESENTA ALTA TEMPERATURA?'},
+      {num:'0460',txt:'VERIFICAR FIXAÇÃO DO MOTORREDUTOR'},
+      {num:'0470',txt:'CAIXA DE REDUÇÃO APRESENTA VAZAMENTOS?'},
+      {num:'0480',txt:'VERIFICAR NÍVEL DE ÓLEO DO MOTORREDUTOR'},
+      {num:'0490',txt:'MOTOR SEM RUIDO E EM BOM ESTADO?'},
+      {num:'0500',txt:'REALIZAR APERTO DAS LIGAÇÕES E BORNES'},
+      {num:'0510',txt:'VERIFICAR CAIXA DE LIGAÇÃO DOS MOTORES'},
+    ]},
+    { titulo: '🔗 Infra Elétrica & Emergência', posto: 'ELETMEC', ops: [
+      {num:'0520',txt:'CABOS ESTÃO ORGANIZADOS NA INFRA ELÉT?'},
+      {num:'0530',txt:'INFRA ELÉT. E CABOS EM BOAS CONDIÇÕES?'},
+      {num:'0540',txt:'VERIFICAR ESTICADOR DO CORDÃO EMERGÊNCIA'},
+      {num:'0550',txt:'REALIZAR APERTO EM GRAMPOS CROSBY CORDÃO'},
+    ]},
+  ],
+  '9077': [
+    { titulo: '🔩 Preventiva Mensal – Estrutura', posto: 'ELETMEC', ops: [
+      {num:'0010',txt:'INSPEÇÃO GERAL DA ESTEIRA'},
+      {num:'0020',txt:'LONAS EM BOAS CONDIÇÕES E ALINHADAS?'},
+      {num:'0030',txt:'TENSIONAMENTO DA LONA ADEQUADO?'},
+      {num:'0040',txt:'ESTICADOR E PORCAS EM CONDIÇÕES?'},
+      {num:'0050',txt:'VERIFICAR CHAPAS ENTRE MÓDULOS'},
+      {num:'0060',txt:'GUIAS LATERAIS, FIXAÇÃO E INTEGRIDADE'},
+      {num:'0070',txt:'PROTEÇÕES DE MOTORES FIXADAS E ÍNTEGRAS?'},
+    ]},
+    { titulo: '⚙️ Acionamento', posto: 'ELETMEC', ops: [
+      {num:'0080',txt:'MANCAIS EM BOAS CONDIÇÕES?'},
+      {num:'0090',txt:'ROLAMENTOS LUBRIFICADOS E SEM RUÍDOS?'},
+      {num:'0100',txt:'CORRENTES LUBRIFICADAS E EM CONDIÇÕES?'},
+      {num:'0110',txt:'ENGRENAGENS E CHAVETAS EM CONDIÇÕES?'},
+    ]},
+    { titulo: '🔌 Elétrica & Motor', posto: 'ELETMEC', ops: [
+      {num:'0120',txt:'MOTORREDUTOR FUNCIONANDO SEM RUÍDOS?'},
+      {num:'0130',txt:'MOTOR SEM SUPERAQUECIMENTO?'},
+      {num:'0140',txt:'NÍVEL DE ÓLEO DO REDUTOR CORRETO?'},
+      {num:'0150',txt:'REAPERTO DE BORNES E CONEXÕES'},
+      {num:'0160',txt:'PAINEL ELÉTRICO EM CONDIÇÕES?'},
+      {num:'0170',txt:'REALIZAR LIMPEZA GERAL NO EQUIPAMENTO'},
+    ]},
+  ],
+};
+
+// ── URL do Apps Script backend ──
+const APPS_SCRIPT_URL = 'https://script.google.com/a/macros/mercadolivre.com/s/AKfycbw7ZVMG0WYTX9pXWNh71VkQL_sDcW6VaD3eWtVx5nLFTH9SFyPuU_C3qjpXVg9mqPVl/exec';
+
+// ── Lê parâmetros da URL ──
+const params  = new URLSearchParams(window.location.search);
+const ordem   = params.get('ordem')  || '';
+const equip   = params.get('equip')  || '';
+const plano   = params.get('plano')  || '';
+const data    = params.get('data')   || '';
+const modulo  = params.get('modulo') || '';
+const titulo  = params.get('titulo') || 'Ordem de Manutenção';
+
+// Chave de armazenamento local
+const STORAGE_KEY = 'ordem_' + ordem + '_' + equip;
+const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+
+// ── Inicializa UI ──
+document.getElementById('hTitle').textContent = titulo;
+document.getElementById('hSub').textContent   = `Ordem ${ordem} · Equip. ${equip}`;
+
+const checklist = CHECKLISTS[plano];
+
+if (!checklist) {
+  document.getElementById('mainContent').innerHTML = `
+    <div class="sem-dados">
+      <div class="icon">⚠️</div>
+      <p>Link inválido ou plano não encontrado.<br>Solicite um novo link ao responsável.</p>
+    </div>`;
+} else {
+  buildForm();
+}
+
+function buildForm() {
+  const c = document.getElementById('mainContent');
+  c.innerHTML = `
+    <div class="dados-card">
+      <div class="dados-title">Dados da Ordem</div>
+      <div class="dados-grid">
+        <div class="dado-item"><div class="dado-lbl">Nro da Ordem</div><div class="dado-val">${ordem||'—'}</div></div>
+        <div class="dado-item"><div class="dado-lbl">Equipamento</div><div class="dado-val">${equip||'—'}</div></div>
+        <div class="dado-item"><div class="dado-lbl">Nro do Plano</div><div class="dado-val">${plano||'—'}</div></div>
+        <div class="dado-item"><div class="dado-lbl">Data</div><div class="dado-val">${data||'—'}</div></div>
+        <div class="dado-item"><div class="dado-lbl">Hora Início</div><input type="time" id="horaInicio" class="dado-input" value="${saved.horaInicio||''}"></div>
+        <div class="dado-item"><div class="dado-lbl">Hora Fim</div><input type="time" id="horaFim" class="dado-input" value="${saved.horaFim||''}"></div>
+        <div class="dado-item full"><div class="dado-lbl">Executante</div><input type="text" id="executante" class="dado-input" placeholder="Nome do executante" value="${saved.executante||''}"></div>
+        <div class="dado-item full"><div class="dado-lbl">Equipamento</div><div class="dado-val">${titulo}</div></div>
+      </div>
+    </div>
+
+    <div class="progress-bar"><div class="progress-fill" id="pFill" style="width:0%"></div></div>
+    <div class="progress-lbl" id="pLbl">0 operações preenchidas</div>
+
+    <div class="ops-section">
+      <div class="ops-title">Operações</div>
+      <div class="ops-header">
+        <div>Op</div><div>Descrição</div><div>Posto</div><div>Verificado</div><div>Min (Real)</div>
+      </div>
+      <div id="opsList"></div>
+    </div>
+
+    <div class="total-bar">
+      <span class="total-lbl">⏱ Tempo Total</span>
+      <span><span class="total-val" id="totalMin">0</span><span class="total-unit">min</span></span>
+    </div>
+
+    <div class="obs-card">
+      <div class="obs-title">Observações</div>
+      <textarea id="obs" placeholder="Observações gerais...">${saved.obs||''}</textarea>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn-salvar" id="btnSalvar" onclick="salvarEGerarPDF()">💾 Salvar Preenchimento</button>
+    </div>`;
+
+  // Renderiza grupos de operações
+  const list = document.getElementById('opsList');
+  checklist.forEach((g, gi) => {
+    const gh = document.createElement('div');
+    gh.className = 'group-header';
+    gh.innerHTML = `<span>${g.titulo}</span><span class="group-total" id="gt_${gi}">0 min</span>`;
+    list.appendChild(gh);
+
+    g.ops.forEach(op => {
+      const savedVal   = saved['op_'     + op.num] || '';
+      const savedVerif = saved['verif_'  + op.num] || '';
+      const savedCmts  = saved['cmts_'   + op.num] || [];
+
+      const block = document.createElement('div');
+      block.className = 'op-block';
+      block.innerHTML = `
+        <div class="op-row">
+          <div class="op-num">${op.num}</div>
+          <div class="op-txt">${op.txt}</div>
+          <div class="op-posto">${g.posto}</div>
+          <div class="op-verif">
+            <select id="verif_${op.num}" class="verif-sel ${savedVerif}" onchange="onVerifChange(this)">
+              <option value="">—</option>
+              <option value="sim" ${savedVerif==='sim'?'selected':''}>✔ Sim</option>
+              <option value="nao" ${savedVerif==='nao'?'selected':''}>✘ Não</option>
+            </select>
+          </div>
+          <div class="op-real">
+            <input type="number" id="op_${op.num}" min="0" inputmode="numeric"
+              placeholder="0" value="${savedVal}"
+              oninput="onChange(this)" onchange="onChange(this)">
+          </div>
+        </div>
+        <div class="op-comment">
+          <input type="text" id="cmt_${op.num}" placeholder="💬 Comentário...">
+          <button class="btn-cmt-save"  onclick="saveCmt('${op.num}')">💾 Salvar</button>
+          <button class="btn-cmt-clear" onclick="clearCmt('${op.num}')">🗑</button>
+        </div>
+        <div class="cmt-log" id="cmtlog_${op.num}"></div>`;
+      list.appendChild(block);
+
+      if (savedVal)   block.querySelector('input[type=number]').classList.add('filled');
+      renderCmts(op.num, savedCmts);
+    });
+  });
+
+  updateProgress();
+  updateTotals();
+}
+
+function onChange(el) {
+  el.classList.toggle('filled', el.value !== '' && parseFloat(el.value) >= 0);
+  updateProgress();
+  updateTotals();
+}
+
+function onVerifChange(sel) {
+  sel.className = 'verif-sel ' + sel.value;
+  updateProgress();
+  salvar();
+}
+
+function saveCmt(num) {
+  const el = document.getElementById('cmt_' + num);
+  if (!el || !el.value.trim()) return;
+  const key = 'cmts_' + num;
+  if (!saved[key]) saved[key] = [];
+  const now = new Date().toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
+  saved[key].push({ text: el.value.trim(), time: now });
+  renderCmts(num, saved[key]);
+  el.value = '';
+  salvar();
+}
+
+function clearCmt(num) {
+  const el = document.getElementById('cmt_' + num);
+  if (el) el.value = '';
+}
+
+function delCmt(num, idx) {
+  if (saved['cmts_'+num]) {
+    saved['cmts_'+num].splice(idx, 1);
+    renderCmts(num, saved['cmts_'+num]);
+    salvar();
+  }
+}
+
+function renderCmts(num, cmts) {
+  const c = document.getElementById('cmtlog_' + num);
+  if (!c) return;
+  c.innerHTML = (cmts||[]).map((item, idx) => `
+    <div class="cmt-item">
+      <span>${item.text}</span>
+      <span class="cmt-time">${item.time}</span>
+      <button class="cmt-del" onclick="delCmt('${num}',${idx})">✕</button>
+    </div>`).join('');
+}
+
+function updateProgress() {
+  let filled = 0, total = 0;
+  checklist.forEach(g => g.ops.forEach(op => {
+    total++;
+    const elMin   = document.getElementById('op_'    + op.num);
+    const elVerif = document.getElementById('verif_' + op.num);
+    if ((elMin && elMin.value !== '') || (elVerif && elVerif.value !== '')) filled++;
+  }));
+  const pct = total ? Math.round(filled/total*100) : 0;
+  const pf = document.getElementById('pFill');
+  const pl = document.getElementById('pLbl');
+  if (pf) pf.style.width = pct + '%';
+  if (pl) pl.textContent = `${filled} de ${total} operações preenchidas (${pct}%)`;
+}
+
+function updateTotals() {
+  let grand = 0;
+  checklist.forEach((g, gi) => {
+    let sub = 0;
+    g.ops.forEach(op => {
+      const el = document.getElementById('op_' + op.num);
+      if (el && el.value !== '') sub += parseFloat(el.value) || 0;
+    });
+    grand += sub;
+    const bt = document.getElementById('gt_' + gi);
+    if (bt) bt.textContent = sub + ' min';
+  });
+  const tv = document.getElementById('totalMin');
+  if (tv) tv.textContent = grand;
+}
+
+function salvar() {
+  const data = {
+    horaInicio: document.getElementById('horaInicio')?.value || '',
+    horaFim:    document.getElementById('horaFim')?.value    || '',
+    executante: document.getElementById('executante')?.value || '',
+    obs:        document.getElementById('obs')?.value        || '',
+  };
+  checklist.forEach(g => g.ops.forEach(op => {
+    const elMin   = document.getElementById('op_'    + op.num);
+    const elVerif = document.getElementById('verif_' + op.num);
+    if (elMin)   data['op_'    + op.num] = elMin.value;
+    if (elVerif) data['verif_' + op.num] = elVerif.value;
+    // preserva comentários do objeto saved
+    if (saved['cmts_' + op.num]) data['cmts_' + op.num] = saved['cmts_' + op.num];
+  }));
+  // Atualiza saved em memória
+  Object.assign(saved, data);
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(saved));
+  showToast('✅ Salvo!');
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+async function salvarEGerarPDF() {
+  salvar();
+  const btn = document.getElementById('btnSalvar');
+  btn.disabled = true; btn.textContent = '⏳ Gerando PDF...';
+
+  try {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ unit:'mm', format:'a4', orientation:'portrait' });
+    const pw = 210, ml = 10, mr = 10;
+    const exec = document.getElementById('executante')?.value || '—';
+    const hIni = document.getElementById('horaInicio')?.value || '—';
+    const hFim = document.getElementById('horaFim')?.value   || '—';
+    const obs  = document.getElementById('obs')?.value       || '';
+    const dataHoje = new Date().toLocaleDateString('pt-BR');
+    let totalGeral = 0;
+
+    // Cabeçalho
+    doc.setFillColor(255,230,0);
+    doc.rect(ml,10,pw-ml-mr,10,'F');
+    doc.setFontSize(13); doc.setFont('helvetica','bold'); doc.setTextColor(26,26,26);
+    doc.text('Ordem de Manutencao', pw/2, 17, {align:'center'});
+    doc.setFontSize(8); doc.setFont('helvetica','normal'); doc.setTextColor(80,80,80);
+    doc.text(titulo.substring(0,60), pw/2, 22, {align:'center'});
+
+    // Info
+    doc.autoTable({
+      startY:26, margin:{left:ml,right:mr}, theme:'grid',
+      styles:{fontSize:8,cellPadding:2},
+      headStyles:{fillColor:[26,26,26],textColor:[255,230,0],fontStyle:'bold'},
+      head:[['Ordem','Equip.','Plano','Data','Hora Início','Hora Fim','Executante']],
+      body:[[ordem,equip,plano,data||dataHoje,hIni,hFim,exec]]
+    });
+
+    // Operações
+    checklist.forEach((g, gi) => {
+      let subTotal = 0;
+      const rows = g.ops.map(op => {
+        const min   = parseFloat(document.getElementById('op_' + op.num)?.value||'0')||0;
+        const verif = document.getElementById('verif_' + op.num)?.value || '—';
+        const cmts  = (saved['cmts_'+op.num]||[]).map(c=>c.text).join('; ');
+        subTotal += min;
+        return [op.num, op.txt, g.posto, verif === 'sim' ? 'SIM' : verif === 'nao' ? 'NÃO' : '—', min + ' min', cmts];
+      });
+      totalGeral += subTotal;
+
+      doc.autoTable({
+        startY: doc.lastAutoTable.finalY + 3,
+        margin:{left:ml,right:mr}, theme:'grid',
+        styles:{fontSize:7.5,cellPadding:2},
+        headStyles:{fillColor:[255,230,0],textColor:[26,26,26],fontStyle:'bold',fontSize:8},
+        head:[[{content:`${g.titulo.replace(/[^\w\s&\-]/g,'').trim()}  |  Total: ${subTotal} min`,colSpan:6}],
+              ['Op','Descrição','Posto','Verificado','Min','Comentários']],
+        body: rows,
+        columnStyles:{0:{cellWidth:12,halign:'center'},2:{cellWidth:16,halign:'center'},3:{cellWidth:16,halign:'center'},4:{cellWidth:14,halign:'center'}},
+        didParseCell:(d)=>{
+          if(d.column.index===3&&d.section==='body'){
+            if(d.cell.raw==='SIM') d.cell.styles.fillColor=[212,237,218];
+            else if(d.cell.raw==='NÃO') d.cell.styles.fillColor=[248,215,218];
+          }
+        }
+      });
+    });
+
+    // Total
+    doc.autoTable({
+      startY: doc.lastAutoTable.finalY+4, margin:{left:ml,right:mr}, theme:'plain',
+      styles:{fontSize:10,fontStyle:'bold',fillColor:[26,26,26],textColor:[255,230,0],cellPadding:4},
+      body:[[`Tempo Total: ${totalGeral} min`]]
+    });
+
+    if (obs) {
+      doc.autoTable({
+        startY: doc.lastAutoTable.finalY+3, margin:{left:ml,right:mr}, theme:'grid',
+        styles:{fontSize:8},
+        headStyles:{fillColor:[26,26,26],textColor:[255,230,0],fontStyle:'bold'},
+        head:[['Observações']], body:[[obs]]
+      });
+    }
+
+    const filename = `relatorio_${ordem}_${equip}_${dataHoje.replace(/\//g,'-')}.pdf`;
+    const pdfB64   = doc.output('datauristring'); // data URI completo
+    const blob     = doc.output('blob');
+    const blobUrl  = URL.createObjectURL(blob);
+
+    // Salva localmente (fallback e cache)
+    const reportKey = 'REPORT_' + ordem + '_' + equip;
+    localStorage.setItem(reportKey, JSON.stringify({
+      pdfB64, filename, geradoEm: dataHoje, executante: exec
+    }));
+
+    // Configura botão de download
+    document.getElementById('btnBaixarPDF').onclick = () => {
+      const a = document.createElement('a'); a.href = blobUrl; a.download = filename; a.click();
+    };
+
+    btn.disabled = false; btn.textContent = '💾 Salvar Preenchimento';
+
+    // Envia para o Apps Script em background
+    btn.textContent = '📤 Enviando para o servidor...';
+    btn.disabled = true;
+
+    const b64raw = pdfB64.split(',')[1]; // remove prefixo data URI
+    fetch(APPS_SCRIPT_URL, {
+      method: 'POST',
+      mode: 'no-cors', // Apps Script não suporta CORS completo
+      headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify({
+        type: 'relatorio_preenchido',
+        ordem, equip, plano,
+        pdfBase64: b64raw,
+        filename,
+        executante: exec,
+        dataPreench: dataHoje
+      })
+    })
+    .then(() => {
+      btn.disabled = false; btn.textContent = '💾 Salvar Preenchimento';
+      document.getElementById('pdfModal').classList.add('open');
+    })
+    .catch(() => {
+      // Mesmo com erro de rede, mostra modal (PDF já está em localStorage)
+      btn.disabled = false; btn.textContent = '💾 Salvar Preenchimento';
+      document.getElementById('pdfModal').classList.add('open');
+    });
+
+  } catch(e) {
+    btn.disabled = false; btn.textContent = '💾 Salvar Preenchimento';
+    showToast('❌ Erro: ' + e.message);
+  }
+}
+
+// Auto-save leve (sem PDF)
+document.addEventListener('input', salvar);
+</script>
+</body>
+</html>
